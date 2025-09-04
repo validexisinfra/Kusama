@@ -7,15 +7,16 @@ read -p "Enter your Kusama node name: " STARTNAME
 
 echo "Updating system and installing dependencies..."
 sudo apt update && sudo apt upgrade -y
-sudo apt install curl git make clang pkg-config libssl-dev build-essential -y
-sudo apt install golang-go -y
-sudo apt install apt-transport-https gnupg cmake protobuf-compiler -y
+sudo apt install -y \
+  curl git make wget clang pkg-config libssl-dev build-essential \
+  apt-transport-https gnupg cmake protobuf-compiler lz4
 
-echo "Installing Bazel..."
-curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel-archive-keyring.gpg
-sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-sudo apt update
+echo "Installing GO..."
+GO_VERSION=1.24.2
+curl -Ls https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz | sudo tar -xzf - -C /usr/local
+echo 'export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH' | sudo tee /etc/profile.d/golang.sh > /dev/null
+echo 'export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
 
 echo "Installing Rust..."
 curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -34,43 +35,50 @@ git checkout polkadot-v1.19.1
 echo "Building Polkadot..."
 cargo build --release
 
+echo 'export PATH="$HOME/polkadot-sdk/target/release:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
 echo "Setting up systemd service..."
 current_user=$(whoami)
-sudo tee /etc/systemd/system/polkadot.service > /dev/null <<EOF
+sudo tee /etc/systemd/system/kusama.service > /dev/null <<EOF
 [Unit]
-Description=Polkadot Validator Node
+Description=Kusama Validator Node
 After=network.target
-
 [Service]
 Type=simple
 User=$current_user
-ExecStart=$HOME/polkadot-sdk/target/release/polkadot \\
-  --validator \\
-  --name "$STARTNAME" \\
-  --chain=kusama \\
-  --database RocksDb \\
-  --state-pruning 1000 \\
-  --port 30333 \\
-  --rpc-port 9933 \\
-  --prometheus-external \\
-  --prometheus-port=9615 \\
-  --unsafe-force-node-key-generation
+WorkingDirectory=$HOME/.kusama
+ExecStart=$(which polkadot) \
+  --validator \
+  --name "$STARTNAME" \
+  --chain=kusama \
+  --database RocksDb \
+  --base-path $HOME/.kusama \
+  --state-pruning 64 \
+  --blocks-pruning 64 \
+  --public-addr /ip4/$(wget -qO- eth0.me)/tcp/30333 \
+  --port 30333 \
+  --rpc-port 9933 \
+  --prometheus-external \
+  --prometheus-port=9615 \
+  --unsafe-force-node-key-generation \
+  --telemetry-url "wss://telemetry-backend.w3f.community/submit/ 1" \
+  --telemetry-url "wss://telemetry.polkadot.io/submit/ 0"
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-
-[Install]
+​[Install]
 WantedBy=multi-user.target
 EOF
 
 echo "Starting and enabling Kusama node service..."
 sudo systemctl daemon-reload
-sudo systemctl enable polkadot.service
-sudo systemctl restart polkadot.service
+sudo systemctl enable kusama.service
+sudo systemctl restart kusama.service
 
 echo "✅ Kusama node setup complete and running."
 
 echo ""
 echo "📄 To check logs, run:"
-echo "journalctl -u polkadot.service -f"
+echo "journalctl -u kusama.service -f"
