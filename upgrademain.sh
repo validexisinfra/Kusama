@@ -3,7 +3,7 @@
 set -e
 
 echo "Stopping Kusama node service..."
-sudo systemctl stop polkadot.service
+sudo systemctl stop kusama.service
 
 echo "Updating Polkadot SDK repository..."
 cd $HOME/polkadot-sdk
@@ -14,7 +14,7 @@ echo "Rebuilding Polkadot..."
 cargo build --release
 
 echo "Restarting Kusama node service..."
-sudo systemctl restart polkadot.service
+sudo systemctl restart kusama.service
 
 echo "📄 Showing live logs:"
-sudo journalctl -u polkadot.service -f
+sudo journalctl -u kusama.service -f
