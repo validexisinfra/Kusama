@@ -38,6 +38,9 @@ cargo build --release
 echo 'export PATH="$HOME/polkadot-sdk/target/release:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
+mkdir -p $HOME/.kusama
+chown -R $(id -u):$(id -g) $HOME/.kusama
+
 echo "Setting up systemd service..."
 current_user=$(whoami)
 sudo tee /etc/systemd/system/kusama.service > /dev/null <<EOF
