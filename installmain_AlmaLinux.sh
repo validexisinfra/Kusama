@@ -1,0 +1,101 @@
+#!/bin/bash
+
+set -e
+
+# Ask for node name
+read -p "Enter your Kusama node name: " STARTNAME
+
+echo "Updating system and installing dependencies..."
+sudo dnf update -y
+sudo dnf upgrade -y
+sudo dnf install -y \
+  curl git make clang cmake gcc gcc-c++ \
+  pkg-config openssl-devel systemd-devel \
+  wget tar lz4 which
+
+echo "Installing GO..."
+GO_VERSION=1.24.2
+curl -Ls https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz | sudo tar -xzf - -C /usr/local
+echo 'export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH' | sudo tee /etc/profile.d/golang.sh > /dev/null
+echo 'export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+echo "Installing Rust..."
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+source $HOME/.cargo/env
+rustup update
+rustup component add rust-src
+rustup target add wasm32-unknown-unknown
+rustup install nightly-2024-01-21
+rustup target add wasm32-unknown-unknown --toolchain nightly-2024-01-21
+
+echo "Installing Protobuf..."
+cd ~
+git clone --recurse-submodules -b v25.3 https://github.com/protocolbuffers/protobuf.git protobuf-25.3
+cd protobuf-25.3
+mkdir build && cd build
+cmake .. -Dprotobuf_BUILD_TESTS=OFF
+make -j$(nproc)
+sudo make install
+sudo ldconfig
+​
+echo "Cloning Polkadot SDK..."
+cd ~
+git clone https://github.com/paritytech/polkadot-sdk.git
+cd polkadot-sdk
+git checkout polkadot-v1.19.1
+
+echo "Building Polkadot..."
+cargo build --release
+
+echo 'export PATH="$HOME/polkadot-sdk/target/release:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+mkdir -p $HOME/.kusama
+chown -R $(id -u):$(id -g) $HOME/.kusama
+setenforce 0
+
+echo "Setting up systemd service..."
+current_user=$(whoami)
+sudo tee /etc/systemd/system/kusama.service > /dev/null <<EOF
+[Unit]
+Description=Kusama Validator Node
+After=network.target
+[Service]
+Type=simple
+User=$current_user
+WorkingDirectory=$HOME/.kusama
+ExecStart=$(which polkadot) \
+  --validator \
+  --name "$STARTNAME" \
+  --chain=kusama \
+  --database RocksDb \
+  --base-path $HOME/.kusama \
+  --state-pruning 64 \
+  --blocks-pruning 64 \
+  --public-addr /ip4/$(wget -qO- eth0.me)/tcp/30333 \
+  --port 30333 \
+  --rpc-port 9933 \
+  --prometheus-external \
+  --prometheus-port=9615 \
+  --unsafe-force-node-key-generation \
+  --telemetry-url "wss://telemetry-backend.w3f.community/submit/ 1" \
+  --telemetry-url "wss://telemetry.polkadot.io/submit/ 0"
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+​[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Starting and enabling Kusama node service..."
+sudo systemctl daemon-reload
+sudo systemctl enable kusama.service
+sudo systemctl restart kusama.service
+
+echo "✅ Kusama node setup complete and running."
+
+echo ""
+echo "📄 To check logs, run:"
+echo "journalctl -u kusama.service -f"
