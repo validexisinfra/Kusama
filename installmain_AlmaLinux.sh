@@ -31,6 +31,7 @@ rustup target add wasm32-unknown-unknown --toolchain nightly-2024-01-21
 
 echo "Installing Protobuf..."
 cd ~
+rm -rf protobuf-25.3
 git clone --recurse-submodules -b v25.3 https://github.com/protocolbuffers/protobuf.git protobuf-25.3
 cd protobuf-25.3
 mkdir build && cd build
@@ -38,9 +39,10 @@ cmake .. -Dprotobuf_BUILD_TESTS=OFF
 make -j$(nproc)
 sudo make install
 sudo ldconfig
-​
+
 echo "Cloning Polkadot SDK..."
 cd ~
+rm -rf polkadot-sdk
 git clone https://github.com/paritytech/polkadot-sdk.git
 cd polkadot-sdk
 git checkout polkadot-v1.19.1
@@ -53,7 +55,7 @@ source ~/.bashrc
 
 mkdir -p $HOME/.kusama
 chown -R $(id -u):$(id -g) $HOME/.kusama
-setenforce 0
+setenforce 0 || true
 
 echo "Setting up systemd service..."
 current_user=$(whoami)
@@ -61,31 +63,33 @@ sudo tee /etc/systemd/system/kusama.service > /dev/null <<EOF
 [Unit]
 Description=Kusama Validator Node
 After=network.target
+
 [Service]
 Type=simple
 User=$current_user
 WorkingDirectory=$HOME/.kusama
-ExecStart=$(which polkadot) \
-  --validator \
-  --name "$STARTNAME" \
-  --chain=kusama \
-  --database RocksDb \
-  --base-path $HOME/.kusama \
-  --state-pruning 64 \
-  --blocks-pruning 64 \
-  --public-addr /ip4/$(wget -qO- eth0.me)/tcp/30333 \
-  --port 30333 \
-  --rpc-port 9933 \
-  --prometheus-external \
-  --prometheus-port=9615 \
-  --unsafe-force-node-key-generation \
-  --telemetry-url "wss://telemetry-backend.w3f.community/submit/ 1" \
+ExecStart=$(which polkadot) \\
+  --validator \\
+  --name "$STARTNAME" \\
+  --chain=kusama \\
+  --database RocksDb \\
+  --base-path $HOME/.kusama \\
+  --state-pruning 64 \\
+  --blocks-pruning 64 \\
+  --public-addr /ip4/\$(wget -qO- eth0.me)/tcp/30333 \\
+  --port 30333 \\
+  --rpc-port 9933 \\
+  --prometheus-external \\
+  --prometheus-port=9615 \\
+  --unsafe-force-node-key-generation \\
+  --telemetry-url "wss://telemetry-backend.w3f.community/submit/ 1" \\
   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0"
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-​[Install]
+
+[Install]
 WantedBy=multi-user.target
 EOF
 
