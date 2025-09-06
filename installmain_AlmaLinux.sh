@@ -76,7 +76,7 @@ ExecStart=$(which polkadot) \\
   --base-path $HOME/.kusama \\
   --state-pruning 64 \\
   --blocks-pruning 64 \\
-  --public-addr /ip4/\$(wget -qO- eth0.me)/tcp/30333 \\
+  --public-addr /ip4/$(wget -qO- eth0.me)/tcp/30333 \\
   --port 30333 \\
   --rpc-port 9933 \\
   --prometheus-external \\
