@@ -13,6 +13,14 @@ source <(curl -s https://raw.githubusercontent.com/validexisinfra/Kusama/main/in
 
 ---
 
+### ⚙️ Kusama Node Setup on AlmaLinux
+
+~~~bash
+source <(curl -s https://raw.githubusercontent.com/validexisinfra/Kusama/main/installmain_AlmaLinux.sh)
+~~~
+
+---
+
 ### 🔄 Kusama Node Upgrade 
 
 ~~~bash
