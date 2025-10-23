@@ -45,7 +45,7 @@ cd ~
 rm -rf polkadot-sdk
 git clone https://github.com/paritytech/polkadot-sdk.git
 cd polkadot-sdk
-git checkout polkadot-v1.20.0
+git checkout polkadot-v1.20.1
 
 echo "Building Polkadot..."
 cargo build --release
